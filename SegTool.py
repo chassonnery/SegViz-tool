@@ -30,7 +30,7 @@ The GPLv3 license cited above does not permit any commercial (profit-making or p
 interested in for-profit use should contact the author. Note that the commercial use of this script is also protected by patent number: *******
 
 """
-# Version: 2025-11-11
+# Version: 2026-03-08
 
 import numpy as np
 import pandas as pd
@@ -44,210 +44,154 @@ from warnings import warn
 
 
 
-def WatershedSegmentation(datatype, InputSpheres, InputRods=None, xmax=None, ymax=None, zmax=None, PeriodicBoundaries=False, dil_coeff=1,
-                          resolution=5, pixelsize=None, smooth_coeff=1, MinSize=1, savefile="data_seg", return_map=False,
-                          header="ClusterIndex", header_per="_cluster"):
-    """ Summary
-        -------
-        ***************** < Copy purpose here > ****************
-        
-        
-        Parameters
-        ----------
-        datatype :
-        
-        InputSpheres : pandas.DataFrame or str
-            Either a DataFrame containing data relative to/ describing a set of spherical objects or a string path leading to a csv file from which to
-            retrieve the data.
-            The DataFrame or file must have at least 2 rows and 4 columns and is assumed to be formatted as follow : 
-                - one row per object,
-                - three columns with label/header "X", "Y" and "Z" which contain the positional vector of the sphere's center,
-                - one column with label/header "R" which contains the sphere's radius. 
-            Extra/additional columns are accepted but will not be used.
-        
-        InputRods : pandas.DataFrame or str or None, optional
-            Either a DataFrame containing data relative to/ describing a set of spherocylindrical (rod-like) objects or a string path leading to a csv
-            file from which to retrieve the data or None if there is no rod-like object in the system.
-            The DataFrame or file must have at least 1 rows and 4 columns and is assumed to be formatted as follow :
-                - one row per object,
-                - three columns with label/header "X", "Y" and "Z" which contain the positional vector of the spherocylinder's center,
-                - three columns with label/header "wX", "wY" and "wZ" which contain its orientation vector,
-                - one column with label/header "L" which contains its length (i.e. length of the central cylindrical part),
-                - one column with label/header "R" which contains its radius.
-            Extra/additional columns are accepted but will not be used.
-            Default is None.
-        
-        PeriodicBoundaries : bool, optional 
-            Specify if the domain boundaries are periodic or not. Default is False.
-        
-        xmax : float, optional
-            Half-length of the computation domain in the x direction. User-provided value is only needed if ``PeriodicBoundaries`` is True, 
-            otherwise default value is alright. Default is computed as the smallest value allowing to enclose all the spheres. See corresponding section 
-            in the manual for more details.
-            If ``PeriodicBoundaries`` is True but no value is provided for ``xmax``, computation will run with default value but a warning will be 
-            issued to the user.
-        
-        ymax : float, optional
-            Half-length of the computation domain in the y direction (identical to xmax).
-        
-        zmax : float, optional
-            Half-length of the computation domain in the z direction (identical to xmax).
-        
-        dil_coeff : float, optional
-            Dilatation coefficient to be applied to the spheres' radius to make clustering easier. See corresponding section in the manual for more
-            details. Default value is 1 (i.e. no dilatation).
-        
-        resolution : int, optional
-            Resolution of the image created for clustering, expressed as the number of pixels in the diameter of the smallest sphere. Default value is 10.
-        
-        smooth_coeff : float, optional
-            Smoothing coefficient applied to the image (via a h-minima transformation) before watershed. See corresponding section in the manual for more 
-            details. Default value is 3.
-        
-        MinSize : int, optional
-            Minimal number of pixels (if datatype is image) or objects (if datatype is dataset) a cluster must contain to be considered as valid.
-            Default value is 1 (i.e. all clusters are valid).
-        
-        header : str, optional
-            Header to be given to the column containing the result of the clusterization process. Default value is "Cluster".
-        
-        
-        References
-        ----------
-            The manual *****************
-        
-        
-        Examples
-        --------
-        example 1
-            import pandas as pd
-            from WatershedSegmentation import ClusterizeSphereObjects
-            
-            Results = ClusterizeSphereObjects("demo_data_spheres.csv", InputRods="demo_data_rods.csv", dil_coeff=1.2)
-            
-            disp(Results)
-            
-            Results.to_csv("my_file.csv")
-        
-        example 2
-            import pandas as pd
-            from WatershedSegmentation import ClusterizeSphereObjects
-            import matplotlib.pyplot as plt
-            
-            Results = ClusterizeSphereObjects("demo_data_spheres.csv", header="cluster (test 1)")
-            Results = ClusterizeSphereObjects(Results, dil_coeff=1.2, header="cluster (test 2)")
-            Results = ClusterizeSphereObjects(Results, InputRods="demo_data_rods.csv", dil_coeff=1.2, header="cluster (test 3)")
-            Results = ClusterizeSphereObjects(Results, InputRods="demo_data_rods.csv", PeriodicBoundaries=True, xmax=20, ymax=10, zmax=10, \
-                                              dil_coeff=1.2, header="cluster (test 4)")
-            
-            plt.figure(1)
-            plt.subplot(1,4,1)
-            plt.plot3()
-            plt.title("Clusterization with default parameters")
-        
-            plt.subplot(1,4,2)
-            plt.plot3()
-            plt.title("Clusterization with dilation by coefficient 1.2")
-        
-            plt.subplot(1,4,3)
-            plt.plot3()
-            plt.title("Clusterization with dilation by coefficient 1.2 \n and using rod objects as separators")
-        
-            plt.subplot(1,4,4)
-            plt.plot3()
-            plt.title("Clusterization with periodic boundary conditions enabled")
-            
-            
-            # ## Save watershed output as tiff file
-            # norm = matplotlib.colors.Normalize(vmin=np.min(labels3), vmax=np.max(labels3), clip=True)
-            # mapper = plt.cm.ScalarMappable(norm=norm, cmap=plt.cm.nipy_spectral)
-            # 
-            # imstack = []
-            # for z in range(labels3.shape[2]):
-            #     RGBA_data = mapper.to_rgba(labels3[:,:,z])*255
-            #     RGBA_data = RGBA_data.astype(np.uint8)
-            #     imstack.append(Image.fromarray( RGBA_data[:,:,:3],mode='RGB' )) # drop last coordinate, that is transparency
-            # 
-            # imstack[0].save('Python_watershed_cv.tiff',save_all=True,append_images=imstack[1:])
-    """
-
-    # Retrieve the input data and check their validity
+def WatershedSegmentation(datatype, InputSpheres, **kwargs):
     if datatype == "image":
-        SpheresSet = RetrieveImage(InputSpheres, "InputSpheres")
-        if InputRods is not None:
-            RodsSet = RetrieveImage(InputRods, "InputRods")
-            if np.shape(SpheresSet) != np.shape(RodsSet):
-                raise ValueError(f"Mismatched shape {np.shape(SpheresSet)} for InputSpheres and {np.shape(RodsSet)} for InputRods.")
-        else:
-            RodsSet = None
-            
+        return WatershedSegmentationImage(InputSpheres, **kwargs)
     elif datatype == "dataset":
-        SpheresSet = RetrieveDataset(InputSpheres, "InputSpheres", mandatory_cols=["X", "Y", "Z", "R"], min_size=2)
-        if InputRods is not None:
-            RodsSet = RetrieveDataset(InputRods, "InputRods", mandatory_cols=["X", "Y", "Z", "wX", "wY", "wZ", "L", "R"], min_size=0)
-        else:
-            RodsSet = None
-    
+        return WatershedSegmentationDataset(InputSpheres, **kwargs)
     else:
         raise TypeError("Argument datatype must be a string equal either to 'image' or 'dataset'")
+
+
+
+def WatershedSegmentationImage(InputSpheres, InputRods=None, pixelsize=None, smooth_coeff=1, MinSize=1, savefile="data_seg"):
+    """ """
+    # Retrieve the input data and check their validity
+    SpheresSet = RetrieveImage(InputSpheres, "InputSpheres")
+    if InputRods is not None:
+        RodsSet = RetrieveImage(InputRods, "InputRods")
+        if np.shape(SpheresSet) != np.shape(RodsSet):
+            raise ValueError(f"Mismatched shape {np.shape(SpheresSet)} for InputSpheres and {np.shape(RodsSet)} for InputRods.")
+        # Substract the image RodsSet from SpheresSet
+        bw = SpheresSet & (~RodsSet)
+    else:
+        bw = SpheresSet
+
+    # Check validity of the optional parameters
+    message = "Parameter 'pixelsize' must be a float or an array-like of floats of length 3."
+    if pixelsize is not None:
+        if np.isscalar(pixelsize):
+            try:
+                pixelsize = float(pixelsize)
+            except TypeError as exc:
+                raise TypeError(message) from exc
+        else:
+            try:
+                pixelsize = np.asarray(pixelsize, dtype=np.float64)
+            except TypeError as exc:
+                raise TypeError(message) from exc
+            if len(pixelsize) != 3:
+                raise TypeError(message+f" Length of the provided parameter is {len(pixelsize)}.")    
+    else:
+        pixelsize = 1.0
         
+    if not (isinstance(smooth_coeff, (int,float)) and (smooth_coeff >= 0)):
+        raise TypeError("Parameter 'smooth_coeff' must be a non-negative scalar number")
+        
+    if not (isinstance(MinSize, int) and (MinSize >= 0)):
+        raise TypeError("Parameter 'MinSize' must be a non-negative integer")
+        
+    if not isinstance(savefile, str):
+        raise TypeError("Parameter 'savefile' must be a string")
+    
+    # Remove isolated spots/objects too small to constitute a cluster
+    bw = remove_small_objects(bw, min_size=MinSize, connectivity=3)
+    
+    # Apply watershed algorithm to this image (with standard preprocess)
+    ClusterMap = MapRegionsUsingWatershed(bw, pixelsize, smooth_coeff)
+    
+    # Save the segmentation result in a tiff file 
+    imstack = []
+    for z in range(ClusterMap.shape[2]):
+        imstack.append( Image.fromarray( ClusterMap[:,:,z] ))
+    imstack[0].save(savefile+".tiff", save_all=True, append_images=imstack[1:])
+    
+    return ClusterMap
+
+
+
+def WatershedSegmentationDataset(InputSpheres, InputRods=None, resolution=5, xmax=None, ymax=None, zmax=None, PeriodicBoundaries=False, dil_coeff=1, smooth_coeff=1, MinSize=1, savefile="data_seg", return_map=False, header="ClusterIndex", header_per="_cluster"):
+    """ 
+    """
+    # Retrieve the input data and check their validity
+    SpheresSet = RetrieveDataset(InputSpheres, "InputSpheres", mandatory_cols=["X", "Y", "Z", "R"], min_size=2)
+    if InputRods is not None:
+        RodsSet = RetrieveDataset(InputRods, "InputRods", mandatory_cols=["X", "Y", "Z", "wX", "wY", "wZ", "L", "R"], min_size=0)
+    else:
+        RodsSet = None
+        
+    # Check validity of segmentation parameters and compute internal parameters
+    params = ParametersForClustering(SpheresSet, RodsSet, resolution, dil_coeff, smooth_coeff, MinSize, PeriodicBoundaries, xmax, ymax, zmax)
     # Check validity of the output parameters
-    assert isinstance(savefile, str)
-    assert isinstance(return_map, bool)
-    assert isinstance(header, str)
-    assert isinstance(header_per, str)
+    if not isinstance(savefile, str):
+        raise TypeError("Parameter 'savefile' must be a string")
+    if not isinstance(header, str):
+        raise TypeError("Parameter 'header' must be a string")
+    if (PeriodicBoundaries and not isinstance(header_per, str)):
+        raise TypeError("Parameter 'header_per' must be a string")
+    if not isinstance(return_map, bool):
+        raise TypeError("Parameter 'return_map' must be a boolean")
+
+    # Create a 3D binary image with 1's for spheres and 0's for background
+    bw = Create3Dbinaryimage(SpheresSet, RodsSet, params)
     
-    # Instanciate the class ParametersForClustering (check validity of user-defined parameters and compute internal parameters)
-    params = ParametersForClustering(SpheresSet, RodsSet, PeriodicBoundaries, xmax, ymax, zmax, dil_coeff, resolution, smooth_coeff,\
-                                     MinSize)
+    # Apply watershed algorithm to this image (with standard preprocess)
+    ClusterMap = MapRegionsUsingWatershed(bw, params.pixelsize, params.smooth_coeff)
     
-    # Clusterize data
-    if datatype == "image":
-        ClusterMap = ClusterizeBinaryImage(SpheresSet, RodsSet, pixelsize, smooth_coeff, MinSize)
+    # Identify the cluster index attributed to each element of 'SpheresSet' according to the cluster-map obtained by watershed
+    # and, if parameter 'PeriodicBoundaries'=True, the coordinates of each element with respect to the filtered cluster
+    # list (see __MergePeriodicCluster)
+    ClusterIndex, SpheresSetTranslatedPosition = ClusterizeFromMap(SpheresSet, ClusterMap, params)
+    
+    # Add to 'SpheresSet' a column containing the cluster index of each element
+    SpheresSet[header] = pd.Series(ClusterIndex)
+    
+    # Add to 'SpheresSet' three columns containing the coordinates of each element with respect to the filtered cluster list
+    # (see __MergePeriodicCluster)
+    if params.PeriodicBoundaries==True:
+        SpheresSet["X"+header_per] = pd.Series(SpheresSetTranslatedPosition[:,0])
+        SpheresSet["Y"+header_per] = pd.Series(SpheresSetTranslatedPosition[:,1])
+        SpheresSet["Z"+header_per] = pd.Series(SpheresSetTranslatedPosition[:,2])
+    
+    # Save the segmentation result in a csv file
+    SpheresSet.to_csv(savefile+".csv", index=False)
+    if return_map:
         imstack = []
         for z in range(ClusterMap.shape[2]):
-            imstack.append( Image.fromarray( ClusterMap[:,:,z] ))
+            imstack.append( Image.fromarray( np.rot90( ClusterMap[:,:,z], axes=(0,1) )))
         imstack[0].save(savefile+".tiff", save_all=True, append_images=imstack[1:])
-        
-        return ClusterMap
-        
-    elif datatype == "dataset":
-        SpheresSet, ClusterMap = ClusterizeSphereObjects(SpheresSet, RodsSet, params, header, header_per)
-        SpheresSet.to_csv(savefile+".csv", index=False)
-        
-        if return_map:
-            imstack = []
-            for z in range(ClusterMap.shape[2]):
-                imstack.append( Image.fromarray( np.rot90( ClusterMap[:,:,z], axes=(0,1) )))
-            imstack[0].save(savefile+".tiff", save_all=True, append_images=imstack[1:])
-            return SpheresSet, ClusterMap
-        else:
-            return SpheresSet
+        return SpheresSet, ClusterMap
+    else:
+        return SpheresSet
 
 
     
 def RetrieveImage(Input, Input_name):
     """ Retrieve the input data and check that it is formatted as a 3D binary image.
     """
+    message = "Argument "+Input_name+" must be a 3D binary image. "
     if isinstance(Input, np.ndarray):
-        # If the user provided the data as a numpy.ndarray of dtype bool, make a copy of it
-        image = (np.copy(Input)).astype("bool")
+        # If the user provided the data as a numpy.ndarray, make a copy of it
+        image = np.copy(Input)    
     elif isinstance(Input, str) and Input.endswith(".tiff"):
         # If the user provided a file name, read the data from this file
-        image = np.array([ np.array(frame).astype("bool") for frame in ImageSequence.Iterator(Image.open(Input)) ])
+        image = np.stack([ np.array(frame) for frame in ImageSequence.Iterator(Image.open(Input)) ], axis=-1)
     else:
         # Otherwise protest
-        raise TypeError("For datatype='image', argument "+Input_name+" must be either a *numpy.ndarray* or a *string* path to a tiff file.")
-#        raise TypeError("For datatype='image', argument "+Input_name+" must be either a 3D binary array (i.e. a 3D *numpy.ndarray* with dtype *bool*)"\
-#                        +" or a *string* path to a tiff file containing a 3D binary image.")
+        raise TypeError("Argument "+Input_name+" must be either a *numpy.ndarray* or a *string* path to a tiff file.")
     
     # Check the image dimension
     if image.ndim != 3:
-        raise TypeError(f"For datatype='image', argument "+Input_name+" must be a 3D binary image. The number of dimensions of the data provided is {image.ndim}.")
-        
+        raise TypeError(message+f"The number of dimensions of the data provided is {image.ndim}.")
+    
     # Check the image type
-    if image.dtype != 'b':
-        raise TypeError(f"For datatype='image', argument "+Input_name+" must be a 3D binary image. The type of the data provided is {image.dtype}.")
+    if image.dtype != bool:
+        if np.issubdtype(image.dtype, np.integer) or np.issubdtype(image.dtype, np.floating):
+            # If dtype is convertible to bool, convert and issue a warning
+            warn(message+f"The type of the data provided is {image.dtype}, it was converted into boolean but this may not raise the result you expect.")
+            image = image.astype("bool")
+        else:
+            raise TypeError(message+f"The type of the data provided is {image.dtype}.")
     
     return image
 
@@ -274,8 +218,8 @@ def RetrieveDataset(Input, Input_name, mandatory_cols, min_size):
     for col in mandatory_cols:
         if col not in dataset.columns:
             raise ValueError(f"Missing column '"+col+"' in dataset "+Input_name)
-        elif ((dataset[col].dtypes.kind not in np.typecodes["AllFloat"]) and (dataset[col].dtypes.kind != 'i')):
-            raise TypeError(f"Column '"+col+"' of dataset "+Input_name+" must contain scalar numbers")
+        elif not (np.issubdtype(dataset[col].dtypes, np.integer) or np.issubdtype(dataset[col].dtypes, np.floating)):
+            raise TypeError(f"Column '"+col+"' of dataset "+Input_name+" must contain scalar real numbers")
 
     # Check that the dataset size (i.e. number of rows) is greater than the minimum size
     if (dataset.shape[0] < min_size):
@@ -300,7 +244,7 @@ class ParametersForClustering:
                 - one column with label/header "R" which contains the sphere's radius. 
             Extra/additional columns are accepted but will not be used.
         
-        RodsSet : pandas.DataFrame or None, optional
+        RodsSet : pandas.DataFrame or None
             Either a DataFrame containing data relative to/ describing a set of spherocylindrical (rod-like) objects or None if there is no rod-like
             object in the system. The DataFrame must have at least 1 rows and 4 columns and is assumed to be formatted as follow :
                 - one row per object,
@@ -309,96 +253,85 @@ class ParametersForClustering:
                 - one column with label/header "L" which contains its length (i.e. length of the central cylindrical part),
                 - one column with label/header "R" which contains its radius.
             Extra/additional columns are accepted but will not be used.
-            Default is None.
         
-        PeriodicBoundaries : bool, optional 
-            Specify if the domain boundary conditions periodic or not. Default is False.
+        resolution : int
+            Resolution of the image created for clustering, expressed as the number of pixels in the diameter of the smallest sphere.
         
-        xmax : float, optional
-            Half-length of the computation domain in the x direction. User-provided value is only needed if ``PeriodicBoundaries`` is True,
-            otherwise default value is alright. Default is computed as the smallest value allowing to enclose all the spheres. See corresponding section 
-            in the manual for more details.
-            If ``PeriodicBoundaries`` is True but no value is provided for ``xmax``, computation will run with default value but a warning will be 
-            issued to the user.
+        dil_coeff : float
+            Dilatation coefficient to be applied to the spheres' radius to make clustering easier. See corresponding section in the manual for more details.
         
-        ymax : float, optional
-            Half-length of the computation domain in the y direction (identical to xmax).
+        smooth_coeff : float
+            Smoothing coefficient applied to the image (via a h-minima transformation) before watershed. See corresponding section in the manual for more details.
         
-        zmax : float, optional
-            Half-length of the computation domain in the z direction (identical to xmax).
+        MinSize : int
+            Minimal number of objects a cluster must contain to be considered as valid.
         
-        dil_coeff : float, optional
-            Dilatation coefficient to be applied to the spheres' radius to make clustering easier. See corresponding section in the manual for more 
-            details. Default value is 1 (i.e. no dilatation).
-        
-        resolution : int, optional
-            Resolution of the image created for clustering, expressed as the number of pixels in the diameter of the smallest sphere. Default value is 10.
-        
-        smooth_coeff : float, optional
-            Smoothing coefficient applied to the image (via a h-minima transformation) before watershed. See corresponding section in the manual for more 
-            details. Default value is 3.
-        
-        MinSize : int, optional
-            Minimal number of objects a cluster must contain to be considered as valid. Default value is 5.
-        
-        header : str, optional
-            Header to be given to the column containing the result of the clusterization process. Default value is "ClusterIndex".
-        
-        header_per : str, optional
-            Header suffix to be given to the columns containing the coordinates of each spherical object with respect to the filtered cluster list (see
-            __MergePeriodicCluster). Only used if ``PeriodicBoundaries'' is True. Default value is "_cluster" (leading to "X_Cluster", "Y_cluster",
-            "Z_cluster").
-        
+        PeriodicBoundaries : bool
+            Specify if the domain boundary conditions periodic or not.
+
+        xmax, ymax, zmax : float or None
+            Half-length of the computation domain in the x, y and z direction respectively.
         
         Attributes
         ----------
         Nspheres : int
-            Number of spherical objects in the system.
+            Number of spherical objects in the system ``SpheresSet``.
+    
         Nrods : int
-            Number of rod-like objects in the system.
-        PeriodicBoundaries : bool
-            Specify if the domain boundary conditions periodic or not.
-        xmax, ymax, zmax : float
-            Half-length of the computation domain in the x, y and z direction respectively.
-        dil_coeff : float
-            Dilatation coefficient to be applied to the spheres' radius to make clustering easier.
-        resolution : int
-            Resolution of the image created for clustering, expressed as the number of pixels in the diameter of the smallest sphere.    
+            Number of rod-like objects in the system ``RodsSet`` (equal to 0 if ``RodsSet`` is None).
+    
         pixelsize : float
             Size of a cubic pixel, equal to the diameter of the smallest sphere divided by ``resolution``.
+    
+        dil_coeff : float
+            Dilatation coefficient to be applied to the spheres' radius to make clustering easier. If equal to 1.0, there is no dilatation.
+    
+        smooth_coeff : float
+            Smoothing coefficient applied to the image (via a h-minima transformation) before watershed.
+    
+        MinSize : int
+            Minimal number of objects a cluster must contain to be considered as valid.
+    
+        PeriodicBoundaries : bool
+            Specify if the domain boundary conditions periodic or not.
+    
+        xmax : float
+            Half-length of the computation domain in the x direction. If the corresponding input parameter is None, this attribute will be set to the smallest value allowing to enclose all the elements of ``SpheresSet``. See corresponding section in the manual for more details.
+            Note that a user-provided value is only needed if ``PeriodicBoundaries`` is True, otherwise default value is alright. If ``PeriodicBoundaries`` is True but no value is provided for ``xmax``, computation will run with the default value but a warning will be issued to the user.
+    
+        ymax : float
+            Half-length of the computation domain in the y direction (same as xmax).
+    
+        zmax : float
+            Half-length of the computation domain in the z direction (same as xmax).
+    
         xgrid : numpy.ndarray (ndim = 3)
             3D array containing a the x-grid part of a meshgrid.
             If ``PeriodicBoundaries`` is False, the grid span over domain [-``xmax``,``xmax``] with a uniform step size equal to ``pixelsize``
             If ``PeriodicBoundaries`` is True, the grid span over domain [-2``xmax``,2``xmax``] with a uniform step size equal to ``pixelsize``
             In case the value of ``pixelsize`` does not allow for a whole number of points in the domain described above, this domain will be slightly 
-            extended on the right-hand side. 
+            extended on the right-hand side.
+    
         ygrid : numpy.ndarray (ndim = 3)
             3D array containing a the y-grid part of a meshgrid (same as xgrid).
+    
         zgrid : numpy.ndarray (ndim = 3)
             3D array containing a the z-grid part of a meshgrid (same as xgrid).
+    
         Nx : int
             Number of pixels of the image created for clustering in the x direction.
             If ``PeriodicBoundaries`` is False then (``Nx`` - 1) x ``pixelsize`` ≥ ``xmax``.
             If ``PeriodicBoundaries`` is True then (``Nx`` - 1) x ``pixelsize`` ≥ 2 x ``xmax``.
+    
         Ny : int
             Number of pixels of the image created for clustering in the y direction (same as Nx).
+    
         Nz : int
             Number of pixels of the image created for clustering in the z direction (same as Nx).
-        smooth_coeff : float
-            Smoothing coefficient applied to the image (via a h-minima transformation) before watershed.
-        MinSize : int
-            Minimal number of objects a cluster must contain to be considered as valid.   
-        header : str
-            Header to be given to the column containing the result of the clusterization process.
-        header_per : str
-            Header suffix to be given to the columns containing the coordinates of each spherical object with respect to the filtered cluster list (see
-            __MergePeriodicCluster). Only used if ``PeriodicBoundaries'' is True.
     """
     
-    def __init__(self, SpheresSet, RodsSet=None, PeriodicBoundaries=False, xmax=None, ymax=None, zmax=None, dil_coeff=1, resolution=5, \
-                 smooth_coeff=1, MinSize=1):
-        """ Constructor.
-        """
+    def __init__(self, SpheresSet, RodsSet, resolution, dil_coeff, smooth_coeff, MinSize, PeriodicBoundaries, xmax, ymax, zmax):
+        """ Constructor. """
         # Retrieve number of spherical objects
         self.Nspheres = len(SpheresSet["X"])
         
@@ -408,12 +341,36 @@ class ParametersForClustering:
         else:
             self.Nrods = len(RodsSet["X"])
         
+        # Compute 'pixelsize' as the diameter of the smallest sphere divided by parameter 'resolution'.
+        if (isinstance(resolution, int) and (resolution > 0)):
+            self.pixelsize = min(SpheresSet["R"]) / resolution
+        else:
+            raise TypeError("resolution must be a positive integer")
+        
+        # Copy value of parameter 'dil_coeff' into the equivalent attribute
+        if (isinstance(dil_coeff, (int,float)) and (dil_coeff > 0)):
+            self.dil_coeff = dil_coeff
+        else:
+            raise TypeError("dil_coeff must be a positive scalar number")
+        
+        # Convert value of the parameter 'smooth_coeff' from number of pixels to real length
+        if (isinstance(smooth_coeff, (int,float)) and (smooth_coeff >= 0)):
+            self.smooth_coeff = smooth_coeff * self.pixelsize
+        else:
+            raise TypeError("smooth_coeff must be a non-negative scalar number")
+        
+        # Copy value of parameter 'MinSize' into the equivalent attribute
+        if (isinstance(MinSize, int) and (MinSize >= 0)):
+            self.MinSize = MinSize
+        else:
+            raise TypeError("MinSize must be a non-negative integer")
+        
+            
         # Copy value of parameter 'PeriodicBoundaries' into the equivalent attribute
         if isinstance(PeriodicBoundaries,bool):
             self.PeriodicBoundaries = PeriodicBoundaries
         else:
-            raise TypeError("PeriodicBoundaries must be of type logical (i.e. either True or False).")
-        
+            raise TypeError("PeriodicBoundaries must be a boolean.")
         
         # If the user provided no value for xmax and/or ymax and/or zmax, compute them as the half-length of the smallest cuboid box centered on the
         # origin and enclosing all the spheres of the set.
@@ -454,46 +411,6 @@ class ParametersForClustering:
             warn(warning_message) 
         
         
-        # Copy value of parameter 'dil_coeff' into the equivalent attribute
-        if (isinstance(dil_coeff, (int,float)) and (dil_coeff > 0)):
-            self.dil_coeff = dil_coeff
-        else:
-            raise TypeError("dif_coeff must be a positive scalar number")
-        
-        # Copy value of parameter 'resolution' into the equivalent attribute
-        if (isinstance(resolution, int) and (resolution > 0)):
-            self.resolution = resolution
-        else:
-            raise TypeError("resolution must be a positive integer")
-        
-        # Copy value of parameter 'smooth_coeff' into the equivalent attribute
-        if (isinstance(smooth_coeff, (int,float)) and (smooth_coeff >= 0)):
-            self.smooth_coeff = smooth_coeff
-        else:
-            raise TypeError("smooth_coeff must be a non-negative scalar number")
-        
-        # Copy value of parameter 'MinSize' into the equivalent attribute
-        if (isinstance(MinSize, int) and (MinSize >= 0)):
-            self.MinSize = MinSize
-        else:
-            raise TypeError("MinSize must be a non-negative integer")
-        
-        # Copy value of parameter 'header' into the equivalent attribute
-        if isinstance(header,str):
-            self.header = header
-        else:
-            raise TypeError("header must be a string.")
-            
-        if isinstance(header_per,str):
-            self.header_per = header_per
-        else:
-            raise TypeError("header_per must be a string.")
-        
-        
-        # Compute value of 'pixelsize' as the diameter of the smallest sphere divided by 'resolution'.
-        self.pixelsize = min(SpheresSet["R"])/self.resolution
-        
-        
         # Create 3D grid spaning over domain [-2'xmax',2'xmax']x[-2'ymax',2'ymax']x[-2'zmax',2'zmax'] with a uniform step size equal to 'pixelsize'
         if self.PeriodicBoundaries:
             [self.xgrid, self.ygrid, self.zgrid] = np.meshgrid(np.arange(-2*self.xmax, 2*self.xmax+self.pixelsize, self.pixelsize), \
@@ -507,53 +424,6 @@ class ParametersForClustering:
         
         # Compute number of pixels in the grid
         [self.Nx, self.Ny, self.Nz] = self.xgrid.shape
-
-
-
-def ClusterizeBinaryImage(SpheresSet, RodsSet, params):
-    """
-    """
-    if RodsSet is None:
-        bw = SpheresSet
-    else:
-        # Substract the image RodsSet from SpheresSet
-        bw = SpheresSet & (~RodsSet)
-    
-    # Remove isolated spots/objects too small to constitute a cluster
-    bw = remove_small_objects(bw, min_size=params.MinSize, connectivity=3)
-    
-    # Apply watershed algorithm to this image (with standard preprocess)
-    ClusterMap = MapRegionsUsingWatershed(bw, params.pixelsize, params.smooth_coeff)
-    
-    return ClusterMap
-
-
-
-def ClusterizeSphereObjects(SpheresSet, RodsSet, params, header, header_per):
-    """
-    """
-    # Create a 3D binary image with 1's for spheres and 0's for background
-    bw = Create3Dbinaryimage(SpheresSet, RodsSet, params)
-    
-    # Apply watershed algorithm to this image (with standard preprocess)
-    ClusterMap = MapRegionsUsingWatershed(bw, params.pixelsize, params.smooth_coeff)
-    
-    # Identify the cluster index attributed to each element of 'SpheresSet' according to the cluster-map obtained by watershed
-    # and, if parameter 'PeriodicBoundaries'=True, the coordinates of each element with respect to the filtered cluster
-    # list (see __MergePeriodicCluster)
-    ClusterIndex, SpheresSetTranslatedPosition = ClusterizeFromMap(SpheresSet, ClusterMap, params)
-    
-    # Add to 'SpheresSet' a column containing the cluster index of each element
-    SpheresSet[header] = pd.Series(ClusterIndex)
-    
-    # Add to 'SpheresSet' three columns containing the coordinates of each element with respect to the filtered cluster list
-    # (see __MergePeriodicCluster)
-    if params.PeriodicBoundaries==True:
-        SpheresSet["X"+header_per] = pd.Series(SpheresSetTranslatedPosition[:,0])
-        SpheresSet["Y"+header_per] = pd.Series(SpheresSetTranslatedPosition[:,1])
-        SpheresSet["Z"+header_per] = pd.Series(SpheresSetTranslatedPosition[:,2])
-    
-    return SpheresSet, ClusterMap
 
 
 
@@ -714,37 +584,21 @@ def __FindVirtualDuplicate(xin, yin, zin, per, params):
     zper = zin - 2*math.copysign(params.zmax, zin)
     
     if per==0:
-        xout = xin  
-        yout = yin
-        zout = zin
+        xout, yout, zout = xin, yin, zin
     elif per==1:
-        xout = xper
-        yout = yin
-        zout = zin
+        xout, yout, zout = xper, yin, zin
     elif per==2:
-        xout = xin
-        yout = yper
-        zout = zin
+        xout, yout, zout = xin, yper, zin
     elif per==3:
-        xout = xin
-        yout = yin
-        zout = zper
+        xout, yout, zout = xin, yin, zper
     elif per==4:
-        xout = xper
-        yout = yper
-        zout = zin
+        xout, yout, zout = xper, yper, zin
     elif per==5:
-        xout = xper
-        yout = yin
-        zout = zper
+        xout, yout, zout = xper, yin, zper
     elif per==6:
-        xout = xin
-        yout = yper
-        zout = zper
+        xout, yout, zout = xin, yper, zper
     elif per==7:
-        xout = xper
-        yout = yper
-        zout = zper
+        xout, yout, zout = xper, yper, zper
     
     return xout, yout, zout
     
@@ -766,7 +620,7 @@ def MapRegionsUsingWatershed(bw, pixelsize, smooth_coeff):
     
     # Apply h-minimum transform to smooth the distance map.
     # --- This function was designed to mimic the behavior of Matlab's imhmin function on 3D images.
-    distance_map_smoothed = - imhmin(distance_map, smooth_coeff*pixelsize) + 1.0
+    distance_map_smoothed = - imhmin(distance_map, smooth_coeff) + 1.0
     
     # Find the local peaks in the smoothed distance map and return a 3D binary image with 1's at the position of local peaks and 0's elsewhere. 
     local_max_map = local_maxima(distance_map_smoothed)
@@ -834,14 +688,14 @@ def imhmin(im, h, conn=None):
             if not valid:
                 raise TypeError("Connectivity must be an array with all dimensions of size 3")
             
-            if (conn.dtype.kind not in np.typecodes["AllInteger"]):
+            if not np.issubdtype(conn.dtype, np.integer):
                 raise ValueError("Connectivity must be an array of integers")
             elif ( (conn[(1,)*dim] != 1) or ( (np.unique(conn)!=[0, 1]) and (np.unique(conn)!=[1]) )):
                 raise ValueError("Connectivity must be an array with only 0 or 1 as values, and 1 at its center")
     
       
     # Check input parameters
-    if ( (not isinstance(im,np.ndarray)) or (im.dtype.kind not in np.typecodes["AllFloat"]) or issparse(im) ):
+    if ( (not isinstance(im, np.ndarray)) or (not np.issubdtype(im.dtype, np.floating)) or issparse(im) ):
         raise TypeError("imhmin: IM must be a real and nonsparse numeric array")
         
     if ((type(h)!=int) and (type(h)!=float)):
@@ -864,7 +718,8 @@ def imreconstruct(marker, mask, conn):
         enter = False
         previous = marker
         marker = scim.maximum_filter(marker,footprint=conn)
-        if (marker.dtype.kind == 'bool'):
+        if marker.dtype.kind == bool:
+#        if (marker.dtype.kind == 'bool'):
             marker = (marker and mask)
         else:
             marker = np.minimum(marker,mask)
@@ -981,9 +836,9 @@ def __SimplifyCluster(ClusterIndex, params):
     for index in range(len(list_cluster)):
         # Check if the number of objects in this cluster is greater or equal to threshold
         if list_cluster_size[index] >= params.MinSize:
-            # Increment number of valid clusters
-            Ncluster += 1
             # Renumber all objects in this cluster (N.B : cluster numbering start from 0)
             SimplifiedClusterIndex = np.where(ClusterIndex==list_cluster[index], Ncluster, SimplifiedClusterIndex)
+            # Increment number of valid clusters
+            Ncluster += 1
     
     return SimplifiedClusterIndex
