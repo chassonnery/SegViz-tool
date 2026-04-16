@@ -173,7 +173,7 @@ def RetrieveImage(Input, Input_name):
     if isinstance(Input, np.ndarray):
         # If the user provided the data as a numpy.ndarray, make a copy of it
         image = np.copy(Input)    
-    elif isinstance(Input, str) and Input.endswith(".tiff"):
+    elif isinstance(Input, str) and (Input.endswith(".tiff") or Input.endswith(".tif")):
         # If the user provided a file name, read the data from this file
         image = np.stack([ np.array(frame) for frame in ImageSequence.Iterator(Image.open(Input)) ], axis=-1)
     else:
@@ -482,7 +482,7 @@ def Create3Dbinaryimage(SpheresSet, RodsSet, params):
                     # Retrieve the binary mask corresponding to this duplicate
                     bw_object, [Nx_min,Nx_max,Ny_min,Ny_max,Nz_min,Nz_max] = __RodMask(xper, yper, zper, wx, wy, wz, l, r, params)
                     # Substract this mask from the image 'bw'
-                    bw[Nx_min:Nx_max,Ny_min:Ny_max,Nz_min:Nz_max] = bw[Nx_min:Nx_max,Ny_min:Ny_max,Nz_min:Nz_max] & (~bw_object)
+                    bw_tot[Nx_min:Nx_max,Ny_min:Ny_max,Nz_min:Nz_max] = bw_tot[Nx_min:Nx_max,Ny_min:Ny_max,Nz_min:Nz_max] & (~bw_object)
         else:
             # Substract each object from the image
             for index in range(params.Nrods):

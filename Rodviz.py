@@ -77,10 +77,6 @@ if 'color' in tableToPoints1.PointData.keys():
     
     customLUTColorBar.Title = ''
     customLUTColorBar.ComponentTitle = ''
-    customLUTColorBar.HorizontalTitle = 1
-    customLUTColorBar.TitleFontFamily = 'Times'
-    customLUTColorBar.TitleFontSize = 22
-    customLUTColorBar.TitleBold = 1
     customLUTColorBar.LabelFontFamily = 'Times'
     customLUTColorBar.LabelFontSize = 16
     customLUTColorBar.LabelBold = 1

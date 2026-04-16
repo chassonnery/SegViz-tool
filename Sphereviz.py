@@ -54,16 +54,16 @@ if 'ClusterIndex' in tableToPoints1.PointData.keys():
     customLUT = GetColorTransferFunction('ClusterIndex', glyph1Display)
     # Interpret cluster values as categories (in contrast to scalar range)
     customLUT.InterpretValuesAsCategories = 1
-    # Manually rescale the transfert function to start from 1
+    # Manually rescale the transfert function to start from 0
     r = tableToPoints1.PointData['ClusterIndex'].GetRange()
     if r[0]<1:
         listAn = []
-        for i in range(1,int(r[1])+1):
+        for i in range(0,int(r[1])+1):
             listAn.append(str(i))
             listAn.append(str(i))
         customLUT.Annotations = listAn
     # Set color for out-of-range objects to white
-    customLUT.UseBelowRangeColor = 1
+    customLUT.UseBelowRangeColor = 0
     customLUT.BelowRangeColor = [1.0, 1.0, 1.0]
     
     
@@ -88,6 +88,17 @@ if 'ClusterIndex' in tableToPoints1.PointData.keys():
     customLUTColorBar = GetScalarBar(customLUT, renderView1)
     # Set color bar to visible
     customLUTColorBar.Visibility = 1
+    customLUTColorBar.WindowLocation = 'Any Location'
+    customLUTColorBar.Position = [0.9, 0.25]
+    customLUTColorBar.ScalarBarLength = 0.5
+    
+    customLUTColorBar.Title = ''
+    customLUTColorBar.ComponentTitle = ''
+    customLUTColorBar.LabelFontFamily = 'Times'
+    customLUTColorBar.LabelFontSize = 16
+    customLUTColorBar.LabelBold = 1
+    customLUTColorBar.LabelColor = [0.0, 0.0, 0.0] # Set labels text color to black
+    customLUTColorBar.TextPosition = 'Ticks left/bottom, annotations right/top'
 else:
     #### Color all spheres in white
     glyph1Display.AmbientColor = [1.0, 1.0, 1.0]
